@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Contador de Hacienda</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #0f0e0c;
+    --surface: #1a1814;
+    --surface2: #252219;
+    --border: #3a3528;
+    --accent: #c8a84b;
+    --accent2: #e8c96a;
+    --green: #5a8a3c;
+    --green2: #7ab85a;
+    --text: #e8e0cc;
+    --muted: #8a806a;
+    --danger: #c84b4b;
+    --blue: #4b8ac8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .container {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* MODE SELECTOR */
+  .mode-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .mode-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .mode-btn:hover { border-color: var(--accent); }
+  .mode-btn.active {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .mode-icon { font-size: 28px; margin-bottom: 6px; }
+  .mode-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; }
+  .mode-desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+  /* DROP ZONE */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    margin-bottom: 16px;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: #1e1c16;
+  }
+  .dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .dropzone-icon { font-size: 36px; margin-bottom: 10px; }
+  .dropzone-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .dropzone-text strong { color: var(--text); }
+
+  /* COUNTER WORKSPACE */
+  .workspace {
+    display: none;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  .workspace.active { display: grid; }
+
+  @media (max-width: 900px) {
+    .workspace.active { grid-template-columns: 1fr; }
+  }
+
+  /* CANVAS AREA */
+  .canvas-wrap {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 16/9;
+    user-select: none;
+    touch-action: none;
+  }
+  #main-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+  #main-video {
+    width: 100%;
+    height: 100%;
+    display: none;
+    object-fit: contain;
+    background: #000;
+  }
+  .canvas-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .canvas-help {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.75);
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    pointer-events: none;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .stat-big {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    text-align: center;
+  }
+  .stat-big-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 88px;
+    line-height: 0.95;
+    color: var(--accent);
+  }
+  .stat-big-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .frames-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .frames-strip-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .frames-thumbs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .frames-thumbs::-webkit-scrollbar { height: 4px; }
+  .frames-thumbs::-webkit-scrollbar-track { background: var(--surface2); }
+  .frames-thumbs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .thumb {
+    flex: 0 0 80px;
+    aspect-ratio: 16/9;
+    border-radius: 2px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+    background: #000;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb.active { border-color: var(--accent); }
+  .thumb-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.85);
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: 600;
+  }
+  .thumb-count.zero { color: var(--muted); }
+
+  /* CONTROLS */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .btn {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn:hover { border-color: var(--accent); background: #2d291e; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0f0e0c;
+    border-color: var(--accent);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    padding: 14px 16px;
+  }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+
+  .btn-danger {
+    color: var(--danger);
+    border-color: rgba(200, 75, 75, 0.3);
+  }
+  .btn-danger:hover {
+    background: rgba(200, 75, 75, 0.15);
+    border-color: var(--danger);
+  }
+
+  .btn-row { display: flex; gap: 6px; }
+  .btn-row .btn { flex: 1; padding: 10px 8px; font-size: 12px; }
+
+  /* MODE-specific UI */
+  .video-controls {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .video-controls.active { display: flex; }
+
+  .video-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .video-progress input[type="range"] { flex: 1; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+
+  /* PROGRESS BAR */
+  .extract-progress {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    display: none;
+  }
+  .extract-progress.active { display: block; }
+  .extract-progress-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .extract-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .extract-progress-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* TIPS PANEL */
+  .tips {
+    background: rgba(75, 138, 200, 0.1);
+    border-left: 3px solid var(--blue);
+    padding: 12px 14px;
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .tips strong { color: var(--blue); }
+
+  /* Hide elements based on mode */
+  body[data-mode="line"] .markers-only { display: none !important; }
+  body[data-mode="point"] .line-only { display: none !important; }
+</style>
+</head>
+<body data-mode="point">
+
+<header>
+  <h1>🐄 Contador de Hacienda</h1>
+  <div class="subtitle">Conteo asistido · Sin costo</div>
+</header>
+
+<div class="container">
+
+  <!-- MODE SELECTOR -->
+  <div class="section-label">1. Tipo de toma</div>
+  <div class="mode-selector">
+    <div class="mode-btn active" data-mode="point">
+      <div class="mode-icon">🎯</div>
+      <div class="mode-title">PUNTOS</div>
+      <div class="mode-desc">Drone, corral, lote quieto. Tocás cada animal en frames del video.</div>
+    </div>
+    <div class="mode-btn" data-mode="line">
+      <div class="mode-icon">📏</div>
+      <div class="mode-title">LÍNEA</div>
+      <div class="mode-desc">Arreo en alambrado. Marcás línea, das play, sumás los que cruzan.</div>
+    </div>
+    <div class="mode-btn" data-mode="frames">
+      <div class="mode-icon">🖼️</div>
+      <div class="mode-title">FRAMES</div>
+      <div class="mode-desc">La app extrae frames clave. Contás en cada uno y ves el máximo.</div>
+    </div>
+  </div>
+
+  <!-- DROPZONE -->
+  <div class="section-label">2. Cargá el video o foto</div>
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="file-input" accept="video/*,image/*">
+    <div class="dropzone-icon">🎬</div>
+    <div class="dropzone-text">
+      <strong>Tocá o arrastrá</strong><br>
+      Video (MP4, MOV) o imagen
+    </div>
+  </div>
+
+  <!-- EXTRACT PROGRESS -->
+  <div class="extract-progress" id="extract-progress">
+    <div class="extract-progress-label" id="extract-label">Extrayendo frames...</div>
+    <div class="extract-progress-bar-bg"><div class="extract-progress-bar" id="extract-bar"></div></div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="workspace" id="workspace">
+
+    <!-- LEFT: canvas -->
+    <div>
+      <div class="canvas-wrap" id="canvas-wrap">
+        <video id="main-video" muted playsinline></video>
+        <canvas id="main-canvas"></canvas>
+        <div class="canvas-help" id="canvas-help">Tocá cada animal</div>
+      </div>
+
+      <!-- Video controls (line mode) -->
+      <div class="video-controls line-only" id="video-controls">
+        <div class="video-progress">
+          <span id="time-current">0:00</span>
+          <input type="range" id="video-seek" min="0" max="100" value="0" step="0.1">
+          <span id="time-total">0:00</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btn-play">▶ PLAY</button>
+          <button class="btn" id="btn-back">⏮ -1s</button>
+          <button class="btn" id="btn-forward">⏭ +1s</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: sidebar -->
+    <div class="sidebar">
+
+      <div class="stat-big">
+        <div class="stat-big-num" id="count-total">0</div>
+        <div class="stat-big-label" id="count-label">CABEZAS</div>
+      </div>
+
+      <!-- Frames strip (frames mode) -->
+      <div class="frames-strip markers-only" id="frames-strip" style="display:none">
+        <div class="frames-strip-title">
+          <span>FRAMES EXTRAÍDOS</span>
+          <span id="frames-count-info">—</span>
+        </div>
+        <div class="frames-thumbs" id="frames-thumbs"></div>
+      </div>
+
+      <div class="controls">
+        <button class="btn btn-primary" id="btn-finish">✓ FINALIZAR Y VER TOTAL</button>
+        <button class="btn" id="btn-undo">↶ DESHACER ÚLTIMO</button>
+        <button class="btn btn-danger" id="btn-reset">⟲ RESET FRAME ACTUAL</button>
+        <button class="btn btn-danger" id="btn-clear-all">🗑 BORRAR TODO</button>
+      </div>
+
+      <div class="tips" id="tips">
+        <strong>Modo PUNTOS:</strong> tocá cada animal en la imagen. Si te equivocás, "Deshacer" o "Reset". Sirve para drone o lote quieto.
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// === STATE ===
+const state = {
+  mode: 'point',                // 'point' | 'line' | 'frames'
+  videoFile: null,
+  videoLoaded: false,
+  isImage: false,
+  frames: [],                   // [{src, time, points: [{x,y}]}]
+  currentFrameIdx: 0,
+  // Line mode
+  linePoints: [],               // [{x, y}] - 0, 1 or 2 points (line endpoints)
+  lineCount: 0,                 // tally of crossings
+  // Single image mode
+  imagePoints: []
+};
+
+// === ELEMENTS ===
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const workspace = document.getElementById('workspace');
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+const video = document.getElementById('main-video');
+const canvasWrap = document.getElementById('canvas-wrap');
+const canvasHelp = document.getElementById('canvas-help');
+const countTotal = document.getElementById('count-total');
+const countLabel = document.getElementById('count-label');
+const framesStrip = document.getElementById('frames-strip');
+const framesThumbs = document.getElementById('frames-thumbs');
+const framesCountInfo = document.getElementById('frames-count-info');
+const videoControls = document.getElementById('video-controls');
+const tipsEl = document.getElementById('tips');
+const extractProgress = document.getElementById('extract-progress');
+const extractBar = document.getElementById('extract-bar');
+const extractLabel = document.getElementById('extract-label');
+
+const TIPS = {
+  point: '<strong>Modo PUNTOS:</strong> tocá cada animal en la imagen. Si te equivocás, "Deshacer" o "Reset". Sirve para drone, corral o foto fija.',
+  line: '<strong>Modo LÍNEA:</strong> tocá 2 puntos para trazar una línea virtual. Después dale Play y tocá la pantalla cada vez que un animal cruce la línea.',
+  frames: '<strong>Modo FRAMES:</strong> la app sacó frames clave del video. En cada uno, tocá los animales visibles. El total será el frame con MÁS animales (pico del lote).'
+};
+
+// === MODE SELECTION ===
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.mode;
+    document.body.dataset.mode = state.mode;
+    tipsEl.innerHTML = TIPS[state.mode];
+    canvasHelp.textContent = state.mode === 'line'
+      ? (state.linePoints.length < 2 ? 'Tocá 2 puntos para la línea' : 'Tocá cuando cruce la línea')
+      : (state.mode === 'frames' ? 'Tocá animales en este frame' : 'Tocá cada animal');
+    redraw();
+  });
+});
+
+// === DROPZONE ===
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+async function handleFile(file) {
+  resetAll();
+  state.isImage = file.type.startsWith('image/');
+
+  if (state.isImage) {
+    // Single image: just display it
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      state.frames = [{ src: url, time: 0, points: [], image: img }];
+      state.currentFrameIdx = 0;
+      workspace.classList.add('active');
+      renderCurrentFrame();
+    };
+    img.src = url;
+    return;
+  }
+
+  // Video
+  state.videoFile = file;
+  const url = URL.createObjectURL(file);
+  video.src = url;
+  await new Promise(r => { video.onloadedmetadata = r; });
+  state.videoLoaded = true;
+  workspace.classList.add('active');
+
+  if (state.mode === 'frames' || state.mode === 'point') {
+    // Extract evenly-spaced frames
+    await extractFrames(8);
+    state.currentFrameIdx = 0;
+    renderCurrentFrame();
+  } else if (state.mode === 'line') {
+    // Show video player for line mode
+    video.currentTime = 0;
+    video.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.inset = '0';
+    canvas.style.pointerEvents = 'auto';
+    videoControls.classList.add('active');
+    setupVideoControls();
+    syncCanvasToVideo();
+    redraw();
+  }
+}
+
+// === EXTRACT FRAMES ===
+async function extractFrames(num = 8) {
+  extractProgress.classList.add('active');
+  state.frames = [];
+  framesThumbs.innerHTML = '';
+
+  const dur = video.duration;
+  const margin = dur * 0.05;
+  const start = margin;
+  const end = dur - margin;
+  const step = (end - start) / Math.max(1, num - 1);
+
+  // Hidden video for extraction
+  const v2 = document.createElement('video');
+  v2.src = video.src;
+  v2.muted = true;
+  v2.preload = 'auto';
+  await new Promise(r => { v2.onloadeddata = r; v2.load(); });
+
+  const tmpCanvas = document.createElement('canvas');
+  const tmpCtx = tmpCanvas.getContext('2d');
+
+  for (let i = 0; i < num; i++) {
+    const t = start + i * step;
+    extractLabel.textContent = `Extrayendo frame ${i + 1} de ${num}...`;
+    extractBar.style.width = `${((i + 1) / num) * 100}%`;
+
+    await new Promise((resolve, reject) => {
+      const handler = () => {
+        tmpCanvas.width = v2.videoWidth;
+        tmpCanvas.height = v2.videoHeight;
+        tmpCtx.drawImage(v2, 0, 0);
+        const dataUrl = tmpCanvas.toDataURL('image/jpeg', 0.85);
+        const img = new Image();
+        img.onload = () => {
+          state.frames.push({ src: dataUrl, time: t, points: [], image: img });
+          v2.removeEventListener('seeked', handler);
+          resolve();
+        };
+        img.src = dataUrl;
+      };
+      v2.addEventListener('seeked', handler);
+      v2.currentTime = t;
+      setTimeout(() => { v2.removeEventListener('seeked', handler); resolve(); }, 5000);
+    });
+  }
+
+  buildThumbs();
+  framesStrip.style.display = 'block';
+  framesCountInfo.textContent = `${state.frames.length} frames`;
+  extractProgress.classList.remove('active');
+  extractBar.style.width = '0%';
+}
+
+function buildThumbs() {
+  framesThumbs.innerHTML = '';
+  state.frames.forEach((frame, idx) => {
+    const div = document.createElement('div');
+    div.className = 'thumb' + (idx === state.currentFrameIdx ? ' active' : '');
+    div.innerHTML = `
+      <img src="${frame.src}">
+      <div class="thumb-count ${frame.points.length === 0 ? 'zero' : ''}">${frame.points.length}</div>
+    `;
+    div.addEventListener('click', () => {
+      state.currentFrameIdx = idx;
+      buildThumbs();
+      renderCurrentFrame();
+    });
+    framesThumbs.appendChild(div);
+  });
+}
+
+function updateThumbCount(idx) {
+  const thumbs = framesThumbs.querySelectorAll('.thumb');
+  if (thumbs[idx]) {
+    const count = state.frames[idx].points.length;
+    const badge = thumbs[idx].querySelector('.thumb-count');
+    badge.textContent = count;
+    badge.classList.toggle('zero', count === 0);
+  }
+}
+
+// === RENDER ===
+function renderCurrentFrame() {
+  if (!state.frames[state.currentFrameIdx]) return;
+  const frame = state.frames[state.currentFrameIdx];
+  video.style.display = 'none';
+  canvas.style.position = '';
+  canvas.style.inset = '';
+  videoControls.classList.remove('active');
+
+  // Set canvas size to match image natural ratio
+  const img = frame.image;
+  const wrapW = canvasWrap.clientWidth;
+  const wrapH = canvasWrap.clientHeight;
+  canvas.width = wrapW;
+  canvas.height = wrapH;
+  redraw();
+}
+
+function syncCanvasToVideo() {
+  canvas.width = canvasWrap.clientWidth;
+  canvas.height = canvasWrap.clientHeight;
+  redraw();
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (state.mode === 'line') {
+    // Draw image (current video frame) into canvas
+    if (video.style.display !== 'none' && video.readyState >= 2) {
+      // Don't redraw video into canvas — video shows behind canvas
+    }
+    drawLine();
+    drawLineCounter();
+  } else {
+    // Draw current frame image
+    const frame = state.frames[state.currentFrameIdx];
+    if (frame && frame.image) {
+      drawImageContain(frame.image);
+      drawPoints(frame.points);
+    }
+  }
+
+  updateCountDisplay();
+}
+
+function drawImageContain(img) {
+  const canvasRatio = canvas.width / canvas.height;
+  const imgRatio = img.naturalWidth / img.naturalHeight;
+  let dw, dh, dx, dy;
+  if (imgRatio > canvasRatio) {
+    dw = canvas.width;
+    dh = canvas.width / imgRatio;
+    dx = 0;
+    dy = (canvas.height - dh) / 2;
+  } else {
+    dh = canvas.height;
+    dw = canvas.height * imgRatio;
+    dy = 0;
+    dx = (canvas.width - dw) / 2;
+  }
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function drawPoints(points) {
+  points.forEach((p, i) => {
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 18, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(200, 168, 75, 0.25)';
+    ctx.fill();
+    // Inner dot
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+    ctx.fillStyle = '#c8a84b';
+    ctx.fill();
+    ctx.strokeStyle = '#0f0e0c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Number
+    ctx.fillStyle = '#0f0e0c';
+    ctx.font = 'bold 11px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, p.x, p.y);
+  });
+}
+
+function drawLine() {
+  if (state.linePoints.length === 0) return;
+  state.linePoints.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+    ctx.fillStyle = '#7ab85a';
+    ctx.fill();
+  });
+  if (state.linePoints.length === 2) {
+    ctx.strokeStyle = '#7ab85a';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 6]);
+    ctx.beginPath();
+    ctx.moveTo(state.linePoints[0].x, state.linePoints[0].y);
+    ctx.lineTo(state.linePoints[1].x, state.linePoints[1].y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawLineCounter() {
+  if (state.lineCount === 0) return;
+  // small flash on screen — not needed since count shown in sidebar
+}
+
+// === CANVAS INTERACTION ===
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return {
+    x: (t.clientX - rect.left) * (canvas.width / rect.width),
+    y: (t.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function handleCanvasTap(e) {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+
+  if (state.mode === 'line') {
+    if (state.linePoints.length < 2) {
+      state.linePoints.push(pos);
+      if (state.linePoints.length === 2) {
+        canvasHelp.textContent = 'Tocá cuando cruce la línea';
+      }
+    } else {
+      // Each tap = +1 crossing
+      state.lineCount++;
+      flashCanvas();
+    }
+  } else {
+    // Point or frames mode
+    const frame = state.frames[state.currentFrameIdx];
+    if (!frame) return;
+    frame.points.push(pos);
+    updateThumbCount(state.currentFrameIdx);
+  }
+  redraw();
+}
+
+canvas.addEventListener('click', handleCanvasTap);
+canvas.addEventListener('touchstart', handleCanvasTap, { passive: false });
+
+function flashCanvas() {
+  canvasWrap.style.boxShadow = 'inset 0 0 0 4px var(--green2)';
+  setTimeout(() => { canvasWrap.style.boxShadow = ''; }, 150);
+}
+
+// === COUNT DISPLAY ===
+function updateCountDisplay() {
+  let count;
+  let label;
+  if (state.mode === 'line') {
+    count = state.lineCount;
+    label = 'CABEZAS (CRUCES)';
+  } else if (state.mode === 'frames') {
+    // Show MAX of all frames + current frame for context
+    const max = Math.max(0, ...state.frames.map(f => f.points.length));
+    const cur = state.frames[state.currentFrameIdx]?.points.length || 0;
+    count = max;
+    label = `MÁX · FRAME ACTUAL: ${cur}`;
+  } else {
+    // point mode
+    count = state.frames[state.currentFrameIdx]?.points.length || 0;
+    label = 'CABEZAS';
+  }
+  countTotal.textContent = count;
+  countLabel.textContent = label;
+}
+
+// === VIDEO CONTROLS (line mode) ===
+function setupVideoControls() {
+  const seek = document.getElementById('video-seek');
+  const btnPlay = document.getElementById('btn-play');
+  const btnBack = document.getElementById('btn-back');
+  const btnFwd = document.getElementById('btn-forward');
+  const tCur = document.getElementById('time-current');
+  const tTot = document.getElementById('time-total');
+
+  tTot.textContent = formatTime(video.duration);
+
+  btnPlay.onclick = () => {
+    if (video.paused) { video.play(); btnPlay.textContent = '⏸ PAUSE'; }
+    else { video.pause(); btnPlay.textContent = '▶ PLAY'; }
+  };
+  btnBack.onclick = () => { video.currentTime = Math.max(0, video.currentTime - 1); };
+  btnFwd.onclick = () => { video.currentTime = Math.min(video.duration, video.currentTime + 1); };
+
+  video.addEventListener('timeupdate', () => {
+    seek.value = (video.currentTime / video.duration) * 100;
+    tCur.textContent = formatTime(video.currentTime);
+  });
+  seek.oninput = () => {
+    video.currentTime = (seek.value / 100) * video.duration;
+  };
+  video.addEventListener('ended', () => { btnPlay.textContent = '▶ PLAY'; });
+}
+
+function formatTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+// === BUTTONS ===
+document.getElementById('btn-undo').onclick = () => {
+  if (state.mode === 'line') {
+    if (state.lineCount > 0) state.lineCount--;
+    else if (state.linePoints.length > 0) state.linePoints.pop();
+  } else {
+    const frame = state.frames[state.currentFrameIdx];
+    if (frame && frame.points.length > 0) {
+      frame.points.pop();
+      updateThumbCount(state.currentFrameIdx);
+    }
+  }
+  redraw();
+};
+
+document.getElementById('btn-reset').onclick = () => {
+  if (state.mode === 'line') {
+    state.linePoints = [];
+    state.lineCount = 0;
+    canvasHelp.textContent = 'Tocá 2 puntos para la línea';
+  } else {
+    const frame = state.frames[state.currentFrameIdx];
+    if (frame) {
+      frame.points = [];
+      updateThumbCount(state.currentFrameIdx);
+    }
+  }
+  redraw();
+};
+
+document.getElementById('btn-clear-all').onclick = () => {
+  if (!confirm('¿Borrar TODO el conteo?')) return;
+  state.frames.forEach(f => f.points = []);
+  state.linePoints = [];
+  state.lineCount = 0;
+  if (state.mode === 'frames') buildThumbs();
+  redraw();
+};
+
+document.getElementById('btn-finish').onclick = () => {
+  let total, detail;
+  if (state.mode === 'line') {
+    total = state.lineCount;
+    detail = `Cruces contados en la línea virtual.`;
+  } else if (state.mode === 'frames') {
+    const counts = state.frames.map(f => f.points.length);
+    const max = Math.max(0, ...counts);
+    const sum = counts.reduce((a, b) => a + b, 0);
+    const avg = counts.length ? Math.round(sum / counts.length) : 0;
+    total = max;
+    detail = `Máximo en un frame: ${max}\nPromedio: ${avg}\nTotal frames con conteo: ${counts.filter(c => c > 0).length}/${counts.length}`;
+  } else {
+    total = state.frames[state.currentFrameIdx]?.points.length || 0;
+    detail = `Conteo en imagen / frame actual.`;
+  }
+
+  alert(`✓ TOTAL: ${total} cabezas\n\n${detail}\n\nFecha: ${new Date().toLocaleString('es-AR')}`);
+};
+
+// === RESET ===
+function resetAll() {
+  state.frames = [];
+  state.currentFrameIdx = 0;
+  state.linePoints = [];
+  state.lineCount = 0;
+  state.imagePoints = [];
+  framesThumbs.innerHTML = '';
+  framesStrip.style.display = 'none';
+  videoControls.classList.remove('active');
+  video.style.display = 'none';
+  workspace.classList.remove('active');
+}
+
+// === RESIZE ===
+window.addEventListener('resize', () => {
+  if (state.mode === 'line' && state.videoLoaded) {
+    syncCanvasToVideo();
+  } else if (state.frames[state.currentFrameIdx]) {
+    renderCurrentFrame();
+  }
+});
+
+</script>
+</body>
+</html>
